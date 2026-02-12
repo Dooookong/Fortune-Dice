@@ -2,6 +2,8 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
     <title>Fortune Dice</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
     
@@ -15,6 +17,8 @@
             overflow: hidden; 
             font-family: 'Pretendard', sans-serif;
             user-select: none;
+            /* 모바일 터치 시 하이라이트 제거 */
+            -webkit-tap-highlight-color: transparent;
         }
 
         #canvas-container {
@@ -28,48 +32,55 @@
             pointer-events: none; /* 클릭 통과 */
             z-index: 10;
         }
-        .hidden { opacity: 0 !important; pointer-events: none !important; transform: scale(0.95); }
-        .visible { opacity: 1 !important; pointer-events: auto !important; transform: scale(1); }
+        .hidden { opacity: 0 !important; pointer-events: none !important; transform: scale(0.95); transition: opacity 0.3s, transform 0.3s; }
+        .visible { opacity: 1 !important; pointer-events: auto !important; transform: scale(1); transition: opacity 0.3s, transform 0.3s; }
 
-        /* --- 1. 홈 화면 UI (절대 위치로 배치하여 주사위 공간 확보) --- */
+        /* --- 1. 홈 화면 UI --- */
         #home-ui { }
 
-        /* 로고 영역 (상단 배치) */
+        /* 로고 영역 */
         .logo-section {
             position: absolute;
-            top: 15%; /* 화면 상단 15% 지점 */
+            top: 15%; 
             width: 100%;
             text-align: center;
             display: flex; flex-direction: column; align-items: center;
+            /* [수정 2] 좌우 여백 추가하여 화면 밖으로 글자가 나가는 것 방지 */
+            padding: 0 20px;
+            box-sizing: border-box;
         }
 
         .logo-text {
-            font-size: 80px; 
+            /* [수정 3] 폰트 크기를 반응형으로 변경 */
+            /* clamp(최소크기, 권장크기, 최대크기) -> 모바일에선 화면너비의 15%로 큼직하게, PC에선 100px로 제한 */
+            font-size: clamp(50px, 15vw, 100px);
             font-weight: 900; 
-            line-height: 0.95; /* 줄 간격 좁게 */
+            line-height: 1.1; /* 줄 간격 약간 조정 */
             color: #fff;
-            /* 네온 그라데이션 */
             background: linear-gradient(to bottom right, #a29bfe 20%, #fff 80%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            /* 그림자 효과 */
             filter: drop-shadow(0 0 25px rgba(108, 92, 231, 0.6));
             letter-spacing: -2px;
+            /* 단어 줄바꿈 방지 */
+            word-break: keep-all; 
         }
 
         .subtitle {
-            font-size: 16px; color: rgba(255,255,255,0.6); 
+            /* [수정 4] 서브 타이틀도 살짝 반응형으로 */
+            font-size: clamp(14px, 4vw, 18px);
+            color: rgba(255,255,255,0.6); 
             font-weight: 300; letter-spacing: 1px;
-            margin-top: 20px;
+            margin-top: 15px;
         }
 
-        /* 버튼 영역 (하단 배치) */
+        /* 버튼 영역 */
         .btn-section {
             position: absolute;
-            bottom: 15%; /* 화면 하단 15% 지점 */
+            bottom: 15%; 
             width: 100%;
             text-align: center;
-            pointer-events: auto; /* 버튼 클릭 가능 */
+            pointer-events: auto; 
         }
 
         /* --- 2. 결과 화면 UI --- */
@@ -83,11 +94,15 @@
         .result-card {
             background: rgba(30, 30, 35, 0.9);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 40px 60px; border-radius: 30px;
+            /* 모바일 대응: 패딩 축소 및 너비 제한 */
+            padding: 40px 30px; 
+            border-radius: 30px;
             text-align: center;
             box-shadow: 0 20px 60px rgba(0,0,0,0.8);
             transform: translateY(20px); transition: transform 0.5s;
             pointer-events: auto;
+            width: 80%; /* 모바일에서 너무 꽉 차지 않게 */
+            max-width: 400px; /* PC에서 너무 커지지 않게 */
         }
         #result-ui.visible .result-card { transform: translateY(0); }
 
@@ -95,11 +110,12 @@
         .total-score { color: #fff; font-size: 80px; font-weight: 800; margin: 0 0 30px 0; line-height: 1; }
         
         .dice-grid {
-            display: flex; justify-content: center; gap: 12px;
+            display: flex; justify-content: center; gap: 10px;
             margin-bottom: 40px;
+            flex-wrap: wrap; /* 주사위가 많으면 줄바꿈 */
         }
         .mini-dice {
-            width: 44px; height: 44px;
+            width: 40px; height: 40px;
             background: #fdfdfd; border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             padding: 4px; box-sizing: border-box;
@@ -108,7 +124,7 @@
             grid-template-rows: repeat(3, 1fr);
         }
         .dot {
-            width: 8px; height: 8px;
+            width: 7px; height: 7px;
             border-radius: 50%;
             background-color: #000;
             align-self: center; justify-self: center;
@@ -116,10 +132,10 @@
         .mini-dice.red .dot { background-color: #d63031; }
 
         /* 버튼 스타일 */
-        .btn-group { display: flex; gap: 15px; justify-content: center; }
+        .btn-group { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
         .btn {
-            padding: 18px 50px; border-radius: 100px; border: none;
-            font-size: 18px; font-weight: 700; cursor: pointer;
+            padding: 16px 40px; border-radius: 100px; border: none;
+            font-size: 16px; font-weight: 700; cursor: pointer;
             transition: all 0.2s;
             pointer-events: auto;
         }
@@ -128,7 +144,6 @@
             box-shadow: 0 10px 30px rgba(108, 92, 231, 0.4);
         }
         .btn-primary:hover { background: #5f4dd0; transform: scale(1.05); }
-        
         .btn-secondary {
             background: rgba(255,255,255,0.1); color: white;
             border: 1px solid rgba(255,255,255,0.2);
@@ -137,9 +152,10 @@
         
         #status-msg {
             position: absolute; top: 12%; width: 100%; text-align: center;
-            color: rgba(255,255,255,0.8); font-size: 20px; font-weight: 500; 
+            color: rgba(255,255,255,0.8); font-size: 18px; font-weight: 500; 
             opacity: 0; transition: opacity 0.3s;
             pointer-events: none; z-index: 15;
+            padding: 0 20px; box-sizing: border-box;
         }
         #status-msg.show { opacity: 1; }
 
@@ -203,12 +219,12 @@ world.defaultContactMaterial.friction = 0.2;
 
 // 카메라 설정 (정면 뷰: Z=14)
 const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, 0, 14); // Y=0, Z=14 (정면에서 바라봄)
+camera.position.set(0, 0, 14); 
 camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 선명도 향상
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.getElementById('canvas-container').appendChild(renderer.domElement);
@@ -223,7 +239,7 @@ scene.add(dirLight);
 const floorMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0, metalness: 0 });
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), floorMat);
 floor.rotation.x = -Math.PI / 2;
-floor.position.y = -5; // 바닥을 좀 더 아래로 내려서 홈 화면에서 안 보이게
+floor.position.y = -5; 
 floor.receiveShadow = true;
 scene.add(floor);
 
@@ -273,7 +289,6 @@ const diceMats = [1,2,3,4,5,6].map(n => createDiceTexture(n));
 // 4. Hero Dice (홈 화면용)
 const heroDice = new THREE.Mesh(diceGeo, diceMats);
 heroDice.scale.set(0.8, 0.8, 0.8);
-// **핵심 수정: 화면 정중앙(0,0,0)에 배치**
 heroDice.position.set(0, 0, 0); 
 heroDice.castShadow = false;
 scene.add(heroDice);
@@ -293,7 +308,7 @@ for(let i=0; i<6; i++){
         linearDamping: 0.3, angularDamping: 0.3,
         sleepSpeedLimit: 0.5, sleepTimeLimit: 0.5
     });
-    body.position.set(0, -20, 0); // 화면 저 아래에 숨겨둠
+    body.position.set(0, -20, 0); 
     body.sleep();
     world.addBody(body);
     gameDiceBodies.push(body);
@@ -320,9 +335,8 @@ window.startGame = () => {
     heroDice.visible = false;
     gameDiceMeshes.forEach(m => m.visible = true);
 
-    // 카메라를 게임 뷰(위에서 내려다보기)로 이동
     const startPos = camera.position.clone();
-    const targetPos = new THREE.Vector3(0, 20, 10); // 높이 20에서 내려다봄
+    const targetPos = new THREE.Vector3(0, 20, 10); 
     let start = null;
     
     function moveCamera(timestamp) {
@@ -332,7 +346,7 @@ window.startGame = () => {
         const ease = progress < .5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
         
         camera.position.lerpVectors(startPos, targetPos, ease);
-        camera.lookAt(0, 0, 0); // 바닥 중심을 계속 바라봄
+        camera.lookAt(0, 0, 0); 
 
         if (progress < 1) requestAnimationFrame(moveCamera);
         else rollLogic();
@@ -348,7 +362,6 @@ function rollLogic() {
     
     gameDiceBodies.forEach(b => {
         b.wakeUp();
-        // 공중에서 뿌리기
         b.position.set((Math.random()-0.5)*5, 5 + Math.random() * 5, (Math.random()-0.5)*5);
         b.velocity.set( (Math.random()-0.5)*10, 5, (Math.random()-0.5)*10 );
         b.angularVelocity.set( Math.random()*20, Math.random()*20, Math.random()*20 );
@@ -366,7 +379,7 @@ function checkDiceStatus() {
     if (totalKineticEnergy < 0.05) stableFrames++;
     else stableFrames = 0;
 
-    if (stableFrames > 40) { // 약 0.7초간 안정적이면 멈춤 판정
+    if (stableFrames > 40) { 
         isRolling = false;
         document.getElementById('status-msg').classList.remove('show');
         calculateResult();
@@ -379,7 +392,6 @@ function calculateResult() {
     let total = 0;
     gameDiceBodies.forEach((b, i) => {
         b.sleep();
-        // BoxGeometry 매핑 순서: Right(1), Left(2), Top(3), Bottom(4), Front(5), Back(6)
         const directions = [
             { vec: new THREE.Vector3(1, 0, 0), val: 1 },
             { vec: new THREE.Vector3(-1, 0, 0), val: 2 },
@@ -391,7 +403,7 @@ function calculateResult() {
         
         let maxDot = -Infinity;
         let finalVal = 1;
-        const worldUp = new THREE.Vector3(0, 1, 0); // 월드 기준 위쪽
+        const worldUp = new THREE.Vector3(0, 1, 0); 
 
         directions.forEach(dir => {
             const worldDir = dir.vec.clone().applyQuaternion(gameDiceMeshes[i].quaternion);
@@ -433,7 +445,6 @@ window.goHome = () => {
     document.getElementById('result-ui').classList.remove('visible');
     document.getElementById('result-ui').classList.add('hidden');
     
-    // 카메라 홈 위치로 복귀
     camera.position.set(0, 0, 14);
     camera.lookAt(0, 0, 0);
     
@@ -452,7 +463,6 @@ function animate(time) {
     if (isHomeMode) {
         heroDice.rotation.y += 0.01;
         heroDice.rotation.x += 0.005;
-        // 중앙(0)에서 살짝 둥둥
         heroDice.position.y = Math.sin(time * 0.002) * 0.3;
     } else {
         world.fixedStep();
