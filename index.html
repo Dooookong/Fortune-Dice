@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Fortune Dice</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
+    
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+
+    <style>
+
+        html, body {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: #000000;
+            overflow: hidden; 
+            font-family: 'Pretendard', sans-serif;
+            user-select: none;
+        }
+
+        #canvas-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0;
+        }
+
+        /* --- UI 공통 --- */
+        .ui-container {
+            position: absolute; width: 100%; height: 100%;
+            pointer-events: none; /* 클릭 통과 */
+            z-index: 10;
+        }
+        .hidden { opacity: 0 !important; pointer-events: none !important; transform: scale(0.95); }
+        .visible { opacity: 1 !important; pointer-events: auto !important; transform: scale(1); }
+
+        /* --- 1. 홈 화면 UI (절대 위치로 배치하여 주사위 공간 확보) --- */
+        #home-ui { }
+
+        /* 로고 영역 (상단 배치) */
+        .logo-section {
+            position: absolute;
+            top: 15%; /* 화면 상단 15% 지점 */
+            width: 100%;
+            text-align: center;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .logo-text {
+            font-size: 80px; 
+            font-weight: 900; 
+            line-height: 0.95; /* 줄 간격 좁게 */
+            color: #fff;
+            /* 네온 그라데이션 */
+            background: linear-gradient(to bottom right, #a29bfe 20%, #fff 80%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            /* 그림자 효과 */
+            filter: drop-shadow(0 0 25px rgba(108, 92, 231, 0.6));
+            letter-spacing: -2px;
+        }
+
+        .subtitle {
+            font-size: 16px; color: rgba(255,255,255,0.6); 
+            font-weight: 300; letter-spacing: 1px;
+            margin-top: 20px;
+        }
+
+        /* 버튼 영역 (하단 배치) */
+        .btn-section {
+            position: absolute;
+            bottom: 15%; /* 화면 하단 15% 지점 */
+            width: 100%;
+            text-align: center;
+            pointer-events: auto; /* 버튼 클릭 가능 */
+        }
+
+        /* --- 2. 결과 화면 UI --- */
+        #result-ui { 
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            z-index: 20;
+        }
+
+        .result-card {
+            background: rgba(30, 30, 35, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 40px 60px; border-radius: 30px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            transform: translateY(20px); transition: transform 0.5s;
+            pointer-events: auto;
+        }
+        #result-ui.visible .result-card { transform: translateY(0); }
+
+        .score-title { color: #a29bfe; font-size: 18px; margin-bottom: 5px; font-weight: 500; }
+        .total-score { color: #fff; font-size: 80px; font-weight: 800; margin: 0 0 30px 0; line-height: 1; }
+        
+        .dice-grid {
+            display: flex; justify-content: center; gap: 12px;
+            margin-bottom: 40px;
+        }
+        .mini-dice {
+            width: 44px; height: 44px;
+            background: #fdfdfd; border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            padding: 4px; box-sizing: border-box;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+        }
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background-color: #000;
+            align-self: center; justify-self: center;
+        }
+        .mini-dice.red .dot { background-color: #d63031; }
+
+        /* 버튼 스타일 */
+        .btn-group { display: flex; gap: 15px; justify-content: center; }
+        .btn {
+            padding: 18px 50px; border-radius: 100px; border: none;
+            font-size: 18px; font-weight: 700; cursor: pointer;
+            transition: all 0.2s;
+            pointer-events: auto;
+        }
+        .btn-primary {
+            background: #6c5ce7; color: white;
+            box-shadow: 0 10px 30px rgba(108, 92, 231, 0.4);
+        }
+        .btn-primary:hover { background: #5f4dd0; transform: scale(1.05); }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.1); color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+        
+        #status-msg {
+            position: absolute; top: 12%; width: 100%; text-align: center;
+            color: rgba(255,255,255,0.8); font-size: 20px; font-weight: 500; 
+            opacity: 0; transition: opacity 0.3s;
+            pointer-events: none; z-index: 15;
+        }
+        #status-msg.show { opacity: 1; }
+
+    </style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<div id="status-msg">주사위가 멈출 때까지 기다려주세요...</div>
+
+<div id="home-ui" class="ui-container visible">
+    
+    <div class="logo-section">
+        <div class="logo-text">Fortune Dice</div>
+        <div class="subtitle">오늘 하루의 운세를 확인하세요.</div>
+    </div>
+
+    <div class="btn-section">
+        <button class="btn btn-primary" onclick="startGame()">주사위 굴리기</button>
+    </div>
+</div>
+
+<div id="result-ui" class="ui-container hidden">
+    <div class="result-card">
+        <div class="score-title">오늘의 운세 점수</div>
+        <div class="total-score" id="totalScore">0점</div>
+        <div class="dice-grid" id="diceGrid"></div>
+        <div class="btn-group">
+            <button class="btn btn-secondary" onclick="goHome()">홈으로</button>
+            <button class="btn btn-primary" onclick="reRoll()">다시 굴리기</button>
+        </div>
+    </div>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/",
+        "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/+esm"
+    }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+let isHomeMode = true;
+let isRolling = false;
+let stableFrames = 0;
+
+// 1. Scene & World
+const scene = new THREE.Scene();
+const world = new CANNON.World();
+world.gravity.set(0, -40, 0);
+world.allowSleep = true;
+world.defaultContactMaterial.restitution = 0.3;
+world.defaultContactMaterial.friction = 0.2;
+
+// 카메라 설정 (정면 뷰: Z=14)
+const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0, 14); // Y=0, Z=14 (정면에서 바라봄)
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 선명도 향상
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+// 2. Lights & Floor
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+dirLight.position.set(5, 10, 10);
+dirLight.castShadow = true;
+scene.add(dirLight);
+
+const floorMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0, metalness: 0 });
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), floorMat);
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -5; // 바닥을 좀 더 아래로 내려서 홈 화면에서 안 보이게
+floor.receiveShadow = true;
+scene.add(floor);
+
+const groundBody = new CANNON.Body({ mass: 0 });
+groundBody.addShape(new CANNON.Plane());
+groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+groundBody.position.set(0, -5, 0);
+world.addBody(groundBody);
+
+// 벽 (주사위 가두기)
+const createWall = (x, z, ry) => {
+    const wall = new CANNON.Body({ mass: 0 });
+    wall.addShape(new CANNON.Plane());
+    wall.position.set(x, 0, z);
+    wall.quaternion.setFromEuler(0, ry, 0);
+    world.addBody(wall);
+};
+createWall(6, 0, -Math.PI/2); createWall(-6, 0, Math.PI/2);
+createWall(0, 6, Math.PI); createWall(0, -6, 0);
+
+// 3. Texture
+function createDiceTexture(n) {
+    const cvs = document.createElement('canvas');
+    cvs.width = 512; cvs.height = 512;
+    const ctx = cvs.getContext('2d');
+    ctx.fillStyle = '#fcfcfc'; ctx.fillRect(0,0,512,512);
+    ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = 15; ctx.strokeRect(0,0,512,512);
+    ctx.fillStyle = n===1 ? '#d63031' : '#000000';
+    const dot = (x,y) => { ctx.beginPath(); ctx.arc(x,y,45,0,Math.PI*2); ctx.fill(); };
+    const p = [128, 256, 384];
+    if(n===1) dot(p[1],p[1]);
+    if(n===2) { dot(p[0],p[0]); dot(p[2],p[2]); }
+    if(n===3) { dot(p[0],p[0]); dot(p[1],p[1]); dot(p[2],p[2]); }
+    if(n===4) { dot(p[0],p[0]); dot(p[2],p[0]); dot(p[0],p[2]); dot(p[2],p[2]); }
+    if(n===5) { dot(p[0],p[0]); dot(p[2],p[0]); dot(p[1],p[1]); dot(p[0],p[2]); dot(p[2],p[2]); }
+    if(n===6) { dot(p[0],p[0]); dot(p[2],p[0]); dot(p[0],p[1]); dot(p[2],p[1]); dot(p[0],p[2]); dot(p[2],p[2]); }
+    const texture = new THREE.CanvasTexture(cvs);
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.minFilter = THREE.LinearFilter;
+    return new THREE.MeshStandardMaterial({ map: texture, roughness: 0.2, metalness: 0.0 });
+}
+
+const diceGeo = new RoundedBoxGeometry(1.2, 1.2, 1.2, 4, 0.15);
+const diceMats = [1,2,3,4,5,6].map(n => createDiceTexture(n));
+
+// 4. Hero Dice (홈 화면용)
+const heroDice = new THREE.Mesh(diceGeo, diceMats);
+heroDice.scale.set(0.8, 0.8, 0.8);
+// **핵심 수정: 화면 정중앙(0,0,0)에 배치**
+heroDice.position.set(0, 0, 0); 
+heroDice.castShadow = false;
+scene.add(heroDice);
+
+// 5. Game Dice (게임용)
+const gameDiceMeshes = [];
+const gameDiceBodies = [];
+for(let i=0; i<6; i++){
+    const mesh = new THREE.Mesh(diceGeo, diceMats);
+    mesh.castShadow = true;
+    mesh.visible = false;
+    scene.add(mesh);
+    gameDiceMeshes.push(mesh);
+    
+    const body = new CANNON.Body({
+        mass: 5, shape: new CANNON.Box(new CANNON.Vec3(0.6,0.6,0.6)),
+        linearDamping: 0.3, angularDamping: 0.3,
+        sleepSpeedLimit: 0.5, sleepTimeLimit: 0.5
+    });
+    body.position.set(0, -20, 0); // 화면 저 아래에 숨겨둠
+    body.sleep();
+    world.addBody(body);
+    gameDiceBodies.push(body);
+}
+
+// 6. UI Render Helper
+function renderMiniDice(container, value) {
+    container.innerHTML = '';
+    container.className = `mini-dice ${value === 1 ? 'red' : ''}`;
+    const dotMap = { 1: [4], 2: [0,8], 3: [0,4,8], 4: [0,2,6,8], 5: [0,2,4,6,8], 6: [0,2,3,5,6,8] };
+    const dots = dotMap[value];
+    for(let i=0; i<9; i++) {
+        const span = document.createElement('span');
+        if(dots.includes(i)) span.className = 'dot';
+        container.appendChild(span);
+    }
+}
+
+// 7. 로직 - 게임 시작
+window.startGame = () => {
+    isHomeMode = false;
+    document.getElementById('home-ui').classList.remove('visible');
+    document.getElementById('home-ui').classList.add('hidden');
+    heroDice.visible = false;
+    gameDiceMeshes.forEach(m => m.visible = true);
+
+    // 카메라를 게임 뷰(위에서 내려다보기)로 이동
+    const startPos = camera.position.clone();
+    const targetPos = new THREE.Vector3(0, 20, 10); // 높이 20에서 내려다봄
+    let start = null;
+    
+    function moveCamera(timestamp) {
+        if (!start) start = timestamp;
+        let progress = (timestamp - start) / 1000;
+        if (progress > 1) progress = 1;
+        const ease = progress < .5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+        
+        camera.position.lerpVectors(startPos, targetPos, ease);
+        camera.lookAt(0, 0, 0); // 바닥 중심을 계속 바라봄
+
+        if (progress < 1) requestAnimationFrame(moveCamera);
+        else rollLogic();
+    }
+    requestAnimationFrame(moveCamera);
+};
+
+// 8. 주사위 굴리기
+function rollLogic() {
+    isRolling = true;
+    stableFrames = 0;
+    document.getElementById('status-msg').classList.add('show');
+    
+    gameDiceBodies.forEach(b => {
+        b.wakeUp();
+        // 공중에서 뿌리기
+        b.position.set((Math.random()-0.5)*5, 5 + Math.random() * 5, (Math.random()-0.5)*5);
+        b.velocity.set( (Math.random()-0.5)*10, 5, (Math.random()-0.5)*10 );
+        b.angularVelocity.set( Math.random()*20, Math.random()*20, Math.random()*20 );
+    });
+}
+
+// 9. 멈춤 감지
+function checkDiceStatus() {
+    if (!isRolling) return;
+    let totalKineticEnergy = 0;
+    gameDiceBodies.forEach(b => {
+        totalKineticEnergy += b.velocity.lengthSquared() + b.angularVelocity.lengthSquared();
+    });
+    
+    if (totalKineticEnergy < 0.05) stableFrames++;
+    else stableFrames = 0;
+
+    if (stableFrames > 40) { // 약 0.7초간 안정적이면 멈춤 판정
+        isRolling = false;
+        document.getElementById('status-msg').classList.remove('show');
+        calculateResult();
+    }
+}
+
+// 10. 결과 계산
+function calculateResult() {
+    let results = [];
+    let total = 0;
+    gameDiceBodies.forEach((b, i) => {
+        b.sleep();
+        // BoxGeometry 매핑 순서: Right(1), Left(2), Top(3), Bottom(4), Front(5), Back(6)
+        const directions = [
+            { vec: new THREE.Vector3(1, 0, 0), val: 1 },
+            { vec: new THREE.Vector3(-1, 0, 0), val: 2 },
+            { vec: new THREE.Vector3(0, 1, 0), val: 3 },
+            { vec: new THREE.Vector3(0, -1, 0), val: 4 },
+            { vec: new THREE.Vector3(0, 0, 1), val: 5 },
+            { vec: new THREE.Vector3(0, 0, -1), val: 6 }
+        ];
+        
+        let maxDot = -Infinity;
+        let finalVal = 1;
+        const worldUp = new THREE.Vector3(0, 1, 0); // 월드 기준 위쪽
+
+        directions.forEach(dir => {
+            const worldDir = dir.vec.clone().applyQuaternion(gameDiceMeshes[i].quaternion);
+            const dot = worldDir.dot(worldUp);
+            if (dot > maxDot) {
+                maxDot = dot;
+                finalVal = dir.val;
+            }
+        });
+        results.push(finalVal);
+        total += finalVal;
+    });
+
+    results.sort((a, b) => a - b);
+    let finalScore = Math.round((Math.round(total / 36 * 100) / 100) * 100);
+
+    const grid = document.getElementById('diceGrid');
+    grid.innerHTML = '';
+    results.forEach(num => {
+        const div = document.createElement('div');
+        renderMiniDice(div, num);
+        grid.appendChild(div);
+    });
+    
+    document.getElementById('totalScore').innerText = finalScore + "점";
+    document.getElementById('result-ui').classList.remove('hidden');
+    document.getElementById('result-ui').classList.add('visible');
+}
+
+// 11. 재시작 및 홈
+window.reRoll = () => {
+    document.getElementById('result-ui').classList.remove('visible');
+    document.getElementById('result-ui').classList.add('hidden');
+    setTimeout(rollLogic, 300);
+};
+
+window.goHome = () => {
+    isHomeMode = true;
+    document.getElementById('result-ui').classList.remove('visible');
+    document.getElementById('result-ui').classList.add('hidden');
+    
+    // 카메라 홈 위치로 복귀
+    camera.position.set(0, 0, 14);
+    camera.lookAt(0, 0, 0);
+    
+    gameDiceMeshes.forEach(m => m.visible = false);
+    gameDiceBodies.forEach(b => { b.position.set(0,-20,0); b.sleep(); });
+    heroDice.visible = true;
+    
+    document.getElementById('home-ui').classList.remove('hidden');
+    document.getElementById('home-ui').classList.add('visible');
+};
+
+// 12. 애니메이션 루프
+function animate(time) {
+    requestAnimationFrame(animate);
+
+    if (isHomeMode) {
+        heroDice.rotation.y += 0.01;
+        heroDice.rotation.x += 0.005;
+        // 중앙(0)에서 살짝 둥둥
+        heroDice.position.y = Math.sin(time * 0.002) * 0.3;
+    } else {
+        world.fixedStep();
+        for(let i=0; i<6; i++){
+            gameDiceMeshes[i].position.copy(gameDiceBodies[i].position);
+            gameDiceMeshes[i].quaternion.copy(gameDiceBodies[i].quaternion);
+        }
+        if (isRolling) checkDiceStatus();
+    }
+    renderer.render(scene, camera);
+}
+animate(0);
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
