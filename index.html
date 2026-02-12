@@ -3,162 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
     <title>Fortune Dice</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
-    
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
 
     <style>
-
         html, body {
             margin: 0; padding: 0; width: 100%; height: 100%;
             background: #000000;
             overflow: hidden; 
             font-family: 'Pretendard', sans-serif;
             user-select: none;
-            /* 모바일 터치 시 하이라이트 제거 */
             -webkit-tap-highlight-color: transparent;
         }
-
-        #canvas-container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0;
-        }
-
-        /* --- UI 공통 --- */
-        .ui-container {
-            position: absolute; width: 100%; height: 100%;
-            pointer-events: none; /* 클릭 통과 */
-            z-index: 10;
-        }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+        .ui-container { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
         .hidden { opacity: 0 !important; pointer-events: none !important; transform: scale(0.95); transition: opacity 0.3s, transform 0.3s; }
         .visible { opacity: 1 !important; pointer-events: auto !important; transform: scale(1); transition: opacity 0.3s, transform 0.3s; }
 
-        /* --- 1. 홈 화면 UI --- */
-        #home-ui { }
-
         /* 로고 영역 */
         .logo-section {
-            position: absolute;
-            top: 15%; 
-            width: 100%;
-            text-align: center;
+            position: absolute; top: 15%; width: 100%; text-align: center;
             display: flex; flex-direction: column; align-items: center;
-            /* [수정 2] 좌우 여백 추가하여 화면 밖으로 글자가 나가는 것 방지 */
-            padding: 0 20px;
-            box-sizing: border-box;
+            padding: 0 20px; box-sizing: border-box;
         }
-
         .logo-text {
-            /* [수정 3] 폰트 크기를 반응형으로 변경 */
-            /* clamp(최소크기, 권장크기, 최대크기) -> 모바일에선 화면너비의 15%로 큼직하게, PC에선 100px로 제한 */
             font-size: clamp(50px, 15vw, 100px);
-            font-weight: 900; 
-            line-height: 1.1; /* 줄 간격 약간 조정 */
-            color: #fff;
+            font-weight: 900; line-height: 1.1; color: #fff;
             background: linear-gradient(to bottom right, #a29bfe 20%, #fff 80%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             filter: drop-shadow(0 0 25px rgba(108, 92, 231, 0.6));
-            letter-spacing: -2px;
-            /* 단어 줄바꿈 방지 */
-            word-break: keep-all; 
+            letter-spacing: -2px; word-break: keep-all;
         }
-
         .subtitle {
-            /* [수정 4] 서브 타이틀도 살짝 반응형으로 */
-            font-size: clamp(14px, 4vw, 18px);
-            color: rgba(255,255,255,0.6); 
-            font-weight: 300; letter-spacing: 1px;
-            margin-top: 15px;
+            font-size: clamp(14px, 4vw, 18px); color: rgba(255,255,255,0.6); 
+            font-weight: 300; letter-spacing: 1px; margin-top: 15px;
         }
+        .btn-section { position: absolute; bottom: 15%; width: 100%; text-align: center; pointer-events: auto; }
 
-        /* 버튼 영역 */
-        .btn-section {
-            position: absolute;
-            bottom: 15%; 
-            width: 100%;
-            text-align: center;
-            pointer-events: auto; 
-        }
-
-        /* --- 2. 결과 화면 UI --- */
+        /* 결과 화면 */
         #result-ui { 
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(10px);
-            z-index: 20;
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(10px); z-index: 20;
         }
-
         .result-card {
-            background: rgba(30, 30, 35, 0.9);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            /* 모바일 대응: 패딩 축소 및 너비 제한 */
-            padding: 40px 30px; 
-            border-radius: 30px;
-            text-align: center;
+            background: rgba(30, 30, 35, 0.9); border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 40px 30px; border-radius: 30px; text-align: center;
             box-shadow: 0 20px 60px rgba(0,0,0,0.8);
             transform: translateY(20px); transition: transform 0.5s;
-            pointer-events: auto;
-            width: 80%; /* 모바일에서 너무 꽉 차지 않게 */
-            max-width: 400px; /* PC에서 너무 커지지 않게 */
+            pointer-events: auto; width: 80%; max-width: 400px;
         }
         #result-ui.visible .result-card { transform: translateY(0); }
-
         .score-title { color: #a29bfe; font-size: 18px; margin-bottom: 5px; font-weight: 500; }
         .total-score { color: #fff; font-size: 80px; font-weight: 800; margin: 0 0 30px 0; line-height: 1; }
         
-        .dice-grid {
-            display: flex; justify-content: center; gap: 10px;
-            margin-bottom: 40px;
-            flex-wrap: wrap; /* 주사위가 많으면 줄바꿈 */
+        /* [수정] 그리드 레이아웃 변경: 3열 격자 */
+        .dice-grid { 
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3개씩 나열 */
+            gap: 12px; 
+            justify-items: center;
+            margin: 0 auto 30px auto; 
+            max-width: 200px; /* 중앙 정렬을 위해 폭 제한 */
         }
         .mini-dice {
-            width: 40px; height: 40px;
-            background: #fdfdfd; border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            padding: 4px; box-sizing: border-box;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(3, 1fr);
+            width: 44px; height: 44px; background: #fdfdfd; border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); padding: 4px; box-sizing: border-box;
+            display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
         }
-        .dot {
-            width: 7px; height: 7px;
-            border-radius: 50%;
-            background-color: #000;
-            align-self: center; justify-self: center;
-        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background-color: #000; align-self: center; justify-self: center; }
         .mini-dice.red .dot { background-color: #d63031; }
 
-        /* 버튼 스타일 */
         .btn-group { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-        .btn {
-            padding: 16px 40px; border-radius: 100px; border: none;
-            font-size: 16px; font-weight: 700; cursor: pointer;
-            transition: all 0.2s;
-            pointer-events: auto;
-        }
-        .btn-primary {
-            background: #6c5ce7; color: white;
-            box-shadow: 0 10px 30px rgba(108, 92, 231, 0.4);
-        }
+        .btn { padding: 16px 40px; border-radius: 100px; border: none; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; pointer-events: auto; }
+        .btn-primary { background: #6c5ce7; color: white; box-shadow: 0 10px 30px rgba(108, 92, 231, 0.4); }
         .btn-primary:hover { background: #5f4dd0; transform: scale(1.05); }
-        .btn-secondary {
-            background: rgba(255,255,255,0.1); color: white;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
         .btn-secondary:hover { background: rgba(255,255,255,0.2); }
         
         #status-msg {
             position: absolute; top: 12%; width: 100%; text-align: center;
             color: rgba(255,255,255,0.8); font-size: 18px; font-weight: 500; 
-            opacity: 0; transition: opacity 0.3s;
-            pointer-events: none; z-index: 15;
+            opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 15;
             padding: 0 20px; box-sizing: border-box;
         }
         #status-msg.show { opacity: 1; }
-
     </style>
 </head>
 <body>
@@ -167,12 +96,10 @@
 <div id="status-msg">주사위가 멈출 때까지 기다려주세요...</div>
 
 <div id="home-ui" class="ui-container visible">
-    
     <div class="logo-section">
         <div class="logo-text">Fortune Dice</div>
         <div class="subtitle">오늘 하루의 운세를 확인하세요.</div>
     </div>
-
     <div class="btn-section">
         <button class="btn btn-primary" onclick="startGame()">주사위 굴리기</button>
     </div>
@@ -217,7 +144,6 @@ world.allowSleep = true;
 world.defaultContactMaterial.restitution = 0.3;
 world.defaultContactMaterial.friction = 0.2;
 
-// 카메라 설정 (정면 뷰: Z=14)
 const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
 camera.position.set(0, 0, 14); 
 camera.lookAt(0, 0, 0);
@@ -249,16 +175,32 @@ groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
 groundBody.position.set(0, -5, 0);
 world.addBody(groundBody);
 
-// 벽 (주사위 가두기)
-const createWall = (x, z, ry) => {
+// 벽 생성 및 반응형 조정
+let leftWall, rightWall, topWall, bottomWall;
+
+const createWall = (ry) => {
     const wall = new CANNON.Body({ mass: 0 });
     wall.addShape(new CANNON.Plane());
-    wall.position.set(x, 0, z);
     wall.quaternion.setFromEuler(0, ry, 0);
     world.addBody(wall);
+    return wall;
 };
-createWall(6, 0, -Math.PI/2); createWall(-6, 0, Math.PI/2);
-createWall(0, 6, Math.PI); createWall(0, -6, 0);
+
+rightWall = createWall(-Math.PI/2);
+leftWall = createWall(Math.PI/2);
+topWall = createWall(Math.PI);
+bottomWall = createWall(0);
+
+function updateWalls() {
+    const aspect = window.innerWidth / window.innerHeight;
+    const xLimit = aspect < 1 ? 3.5 : 7.0; 
+    const zLimit = 6.0; 
+    rightWall.position.set(xLimit, 0, 0);
+    leftWall.position.set(-xLimit, 0, 0);
+    topWall.position.set(0, 0, zLimit);
+    bottomWall.position.set(0, 0, -zLimit);
+}
+updateWalls(); 
 
 // 3. Texture
 function createDiceTexture(n) {
@@ -283,17 +225,18 @@ function createDiceTexture(n) {
     return new THREE.MeshStandardMaterial({ map: texture, roughness: 0.2, metalness: 0.0 });
 }
 
-const diceGeo = new RoundedBoxGeometry(1.2, 1.2, 1.2, 4, 0.15);
+// [수정] 주사위 크기 축소 (1.2 -> 1.0)
+const diceGeo = new RoundedBoxGeometry(0.9, 0.9, 0.9, 4, 0.15);
 const diceMats = [1,2,3,4,5,6].map(n => createDiceTexture(n));
 
-// 4. Hero Dice (홈 화면용)
+// 4. Hero Dice
 const heroDice = new THREE.Mesh(diceGeo, diceMats);
-heroDice.scale.set(0.8, 0.8, 0.8);
+heroDice.scale.set(1.35, 1.35, 1.35);
 heroDice.position.set(0, 0, 0); 
 heroDice.castShadow = false;
 scene.add(heroDice);
 
-// 5. Game Dice (게임용)
+// 5. Game Dice
 const gameDiceMeshes = [];
 const gameDiceBodies = [];
 for(let i=0; i<6; i++){
@@ -303,8 +246,9 @@ for(let i=0; i<6; i++){
     scene.add(mesh);
     gameDiceMeshes.push(mesh);
     
+    // [수정] 물리 박스 크기도 축소 (0.6 -> 0.5)
     const body = new CANNON.Body({
-        mass: 5, shape: new CANNON.Box(new CANNON.Vec3(0.6,0.6,0.6)),
+        mass: 5, shape: new CANNON.Box(new CANNON.Vec3(0.5,0.5,0.5)),
         linearDamping: 0.3, angularDamping: 0.3,
         sleepSpeedLimit: 0.5, sleepTimeLimit: 0.5
     });
@@ -327,7 +271,7 @@ function renderMiniDice(container, value) {
     }
 }
 
-// 7. 로직 - 게임 시작
+// 7. 로직
 window.startGame = () => {
     isHomeMode = false;
     document.getElementById('home-ui').classList.remove('visible');
@@ -360,15 +304,19 @@ function rollLogic() {
     stableFrames = 0;
     document.getElementById('status-msg').classList.add('show');
     
+    updateWalls();
+
     gameDiceBodies.forEach(b => {
         b.wakeUp();
-        b.position.set((Math.random()-0.5)*5, 5 + Math.random() * 5, (Math.random()-0.5)*5);
+        const aspect = window.innerWidth / window.innerHeight;
+        const spawnRangeX = aspect < 1 ? 2.0 : 4.0;
+
+        b.position.set((Math.random()-0.5) * spawnRangeX, 5 + Math.random() * 5, (Math.random()-0.5)*5);
         b.velocity.set( (Math.random()-0.5)*10, 5, (Math.random()-0.5)*10 );
         b.angularVelocity.set( Math.random()*20, Math.random()*20, Math.random()*20 );
     });
 }
 
-// 9. 멈춤 감지
 function checkDiceStatus() {
     if (!isRolling) return;
     let totalKineticEnergy = 0;
@@ -386,7 +334,6 @@ function checkDiceStatus() {
     }
 }
 
-// 10. 결과 계산
 function calculateResult() {
     let results = [];
     let total = 0;
@@ -433,7 +380,6 @@ function calculateResult() {
     document.getElementById('result-ui').classList.add('visible');
 }
 
-// 11. 재시작 및 홈
 window.reRoll = () => {
     document.getElementById('result-ui').classList.remove('visible');
     document.getElementById('result-ui').classList.add('hidden');
@@ -456,7 +402,6 @@ window.goHome = () => {
     document.getElementById('home-ui').classList.add('visible');
 };
 
-// 12. 애니메이션 루프
 function animate(time) {
     requestAnimationFrame(animate);
 
@@ -480,6 +425,7 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    updateWalls();
 });
 </script>
 </body>
